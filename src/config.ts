@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
@@ -35,6 +35,11 @@ export interface UnisonConfig {
   compactionThreshold?: number;
   /** Recall brain on every prompt, not just session start. Default false */
   recallEveryPrompt?: boolean;
+  /**
+   * Automatically save a conversation summary to the brain every N assistant turns.
+   * 0 = disabled (default). E.g. 3 = save after every 3rd turn.
+   */
+  captureEveryNTurns?: number;
 }
 
 const DEFAULT_KEYWORD_PATTERNS = [
@@ -65,22 +70,22 @@ function isValidRegex(pattern: string): boolean {
   }
 }
 
-function loadRawConfig(): UnisonConfig {
+function loadRawConfig(): { config: UnisonConfig; existed: boolean } {
   for (const path of CONFIG_FILES) {
     if (existsSync(path)) {
       try {
         const content = readFileSync(path, "utf-8");
         const json = stripJsoncComments(content);
-        return JSON.parse(json) as UnisonConfig;
+        return { config: JSON.parse(json) as UnisonConfig, existed: true };
       } catch {
-        return {};
+        return { config: {}, existed: true };
       }
     }
   }
-  return {};
+  return { config: {}, existed: false };
 }
 
-const fileConfig = loadRawConfig();
+const { config: fileConfig, existed: configExisted } = loadRawConfig();
 
 function getToken(): string | undefined {
   if (process.env.UNISON_TOKEN) return process.env.UNISON_TOKEN;
@@ -118,8 +123,30 @@ export const CONFIG = {
     return v;
   })(),
   recallEveryPrompt: fileConfig.recallEveryPrompt ?? false,
+  captureEveryNTurns:
+    fileConfig.captureEveryNTurns ??
+    (configExisted ? 3 : 0),
 };
 
 export function isConfigured(): boolean {
   return !!UNISON_TOKEN;
+}
+
+/**
+ * Write sensible install defaults to the config file.
+ * Called on `install` so first-time users get the recommended settings.
+ * isExistingInstall = true means a config file already existed before install.
+ */
+export function writeInstallDefaults(isExistingInstall: boolean): void {
+  const current = loadRawConfig().config;
+  const next: UnisonConfig = { ...current };
+  if (isExistingInstall) {
+    if (next.recallEveryPrompt === undefined) next.recallEveryPrompt = true;
+    if (next.captureEveryNTurns === undefined) next.captureEveryNTurns = 3;
+  } else {
+    next.recallEveryPrompt = false;
+    next.captureEveryNTurns = 0;
+  }
+  const configPath = CONFIG_FILES[1]!;
+  writeFileSync(configPath, JSON.stringify(next, null, 2));
 }

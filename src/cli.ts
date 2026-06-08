@@ -11,13 +11,15 @@ import {
   CREDENTIALS_FILE,
   provisionAndVerify,
 } from "./services/auth.js";
-import { CONFIG, CONFIG_FILE, UNISON_TOKEN, getApiBaseUrl, isConfigured } from "./config.js";
+import { CONFIG, CONFIG_FILE, UNISON_TOKEN, getApiBaseUrl, isConfigured, writeInstallDefaults } from "./config.js";
 import { UnisonBrainClient } from "./services/client.js";
 import { getTags } from "./services/tags.js";
 
 const OPENCODE_CONFIG_DIR = join(homedir(), ".config", "opencode");
 const OPENCODE_COMMAND_DIR = join(OPENCODE_CONFIG_DIR, "command");
+const OH_MY_OPENCODE_CONFIG = join(OPENCODE_CONFIG_DIR, "oh-my-opencode.json");
 const PLUGIN_NAME = "opencode-unison@latest";
+const DEFAULT_CONFIG_FILE = CONFIG_FILE ?? join(OPENCODE_CONFIG_DIR, "unison.json");
 
 const UNISON_INIT_COMMAND = `---
 description: Initialize Unison brain with comprehensive codebase knowledge
@@ -316,12 +318,63 @@ function createCommands(): boolean {
   return true;
 }
 
+function isOhMyOpencodeInstalled(): boolean {
+  const configPath = findOpencodeConfig();
+  if (!configPath) return false;
+
+  try {
+    const content = readFileSync(configPath, "utf-8");
+    return content.includes("oh-my-opencode");
+  } catch {
+    return false;
+  }
+}
+
+function isAutoCompactAlreadyDisabled(): boolean {
+  if (!existsSync(OH_MY_OPENCODE_CONFIG)) return false;
+
+  try {
+    const content = readFileSync(OH_MY_OPENCODE_CONFIG, "utf-8");
+    const config = JSON.parse(content) as { disabled_hooks?: string[] };
+    return config.disabled_hooks?.includes("anthropic-context-window-limit-recovery") ?? false;
+  } catch {
+    return false;
+  }
+}
+
+function disableAutoCompactHook(): boolean {
+  try {
+    let config: Record<string, unknown> = {};
+
+    if (existsSync(OH_MY_OPENCODE_CONFIG)) {
+      const content = readFileSync(OH_MY_OPENCODE_CONFIG, "utf-8");
+      config = JSON.parse(content) as Record<string, unknown>;
+    }
+
+    const disabledHooks = (config.disabled_hooks as string[]) || [];
+    if (!disabledHooks.includes("anthropic-context-window-limit-recovery")) {
+      disabledHooks.push("anthropic-context-window-limit-recovery");
+    }
+    config.disabled_hooks = disabledHooks;
+
+    writeFileSync(OH_MY_OPENCODE_CONFIG, JSON.stringify(config, null, 2));
+    console.log("Disabled anthropic-context-window-limit-recovery hook in oh-my-opencode.json");
+    return true;
+  } catch (err) {
+    console.error("Failed to update oh-my-opencode.json:", err);
+    return false;
+  }
+}
+
 interface InstallOptions {
   tui: boolean;
+  disableAutoCompact: boolean;
 }
 
 async function install(options: InstallOptions): Promise<number> {
   console.log("\nopencode-unison installer\n");
+
+  writeInstallDefaults(existsSync(DEFAULT_CONFIG_FILE));
 
   const rl = options.tui ? createReadline() : null;
 
@@ -353,6 +406,33 @@ async function install(options: InstallOptions): Promise<number> {
     else console.log("Skipped.");
   } else {
     createCommands();
+  }
+
+  // Step 3: Configure Oh My OpenCode (if installed)
+  if (isOhMyOpencodeInstalled()) {
+    console.log("\nStep 3: Configure Oh My OpenCode");
+    console.log("Detected Oh My OpenCode plugin.");
+    console.log("Unison handles context compaction, so the built-in context-window-limit-recovery hook should be disabled.");
+
+    if (isAutoCompactAlreadyDisabled()) {
+      console.log("anthropic-context-window-limit-recovery hook already disabled");
+    } else {
+      if (options.tui) {
+        const shouldDisable = await confirm(
+          rl!,
+          "Disable anthropic-context-window-limit-recovery hook to let Unison handle context?"
+        );
+        if (!shouldDisable) {
+          console.log("Skipped.");
+        } else {
+          disableAutoCompactHook();
+        }
+      } else if (options.disableAutoCompact) {
+        disableAutoCompactHook();
+      } else {
+        console.log("Skipped. Use --disable-context-recovery to disable the hook in non-interactive mode.");
+      }
+    }
   }
 
   if (rl) rl.close();
@@ -475,6 +555,8 @@ async function status(): Promise<number> {
   lines.push(`Connected: ${isConfigured() ? "checking..." : "no"}`);
   lines.push(`Token: ${maskToken(UNISON_TOKEN)} (${getKeySource()})`);
   lines.push(`API URL: ${apiUrl}`);
+  lines.push(`Recall mode: ${CONFIG.recallEveryPrompt ? "recall on every prompt" : "session start only"}`);
+  lines.push(`Capture cadence: ${CONFIG.captureEveryNTurns > 0 ? `every ${CONFIG.captureEveryNTurns} turn${CONFIG.captureEveryNTurns === 1 ? "" : "s"} + session end` : "session end only"}`);
   lines.push(`Project tag: ${tags.project}`);
   lines.push(`User tag: ${tags.user}`);
 
@@ -551,7 +633,8 @@ opencode-unison — Persistent brain memory for OpenCode agents
 
 Commands:
   install       Install and configure the plugin
-    --no-tui               Non-interactive mode (for LLM agents)
+    --no-tui                     Non-interactive mode (for LLM agents)
+    --disable-context-recovery   Disable Oh My OpenCode's context hook
   login         Authenticate via browser (opens browser)
   login --headless  Authenticate via email + OTP (no browser needed)
   logout        Clear stored credentials
@@ -580,7 +663,13 @@ if (args.length === 0 || args[0] === "help" || args[0] === "--help" || args[0] =
 
 if (args[0] === "install") {
   const noTui = args.includes("--no-tui");
-  install({ tui: !noTui }).then((code) => process.exit(code));
+  const disableAutoCompact = args.includes("--disable-context-recovery");
+  install({ tui: !noTui, disableAutoCompact }).then((code) => process.exit(code));
+} else if (args[0] === "setup") {
+  console.log("Note: 'setup' is deprecated. Use 'install' instead.\n");
+  const noTui = args.includes("--no-tui");
+  const disableAutoCompact = args.includes("--disable-context-recovery");
+  install({ tui: !noTui, disableAutoCompact }).then((code) => process.exit(code));
 } else if (args[0] === "login") {
   if (args.includes("--headless")) {
     headlessProvision().then((code) => process.exit(code));

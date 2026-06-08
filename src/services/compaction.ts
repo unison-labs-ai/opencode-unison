@@ -17,6 +17,7 @@ interface CompactionState {
   lastCompactionTime: Map<string, number>;
   compactionInProgress: Set<string>;
   summarizedSessions: Set<string>;
+  turnCounters: Map<string, number>;
 }
 
 interface TokenInfo {
@@ -278,6 +279,7 @@ export function createCompactionHook(
     lastCompactionTime: new Map(),
     compactionInProgress: new Set(),
     summarizedSessions: new Set(),
+    turnCounters: new Map(),
   };
 
   const threshold = options?.threshold ?? DEFAULT_THRESHOLD;
@@ -313,6 +315,47 @@ export function createCompactionHook(
         sessionID: summarizeCtx.sessionID,
         memoriesCount: projectMemories.length,
       });
+    }
+  }
+
+  async function capturePeriodicSnapshot(sessionID: string): Promise<void> {
+    const captureEveryNTurns = CONFIG.captureEveryNTurns;
+    if (!captureEveryNTurns || captureEveryNTurns <= 0) return;
+
+    const current = (state.turnCounters.get(sessionID) ?? 0) + 1;
+    state.turnCounters.set(sessionID, current);
+
+    if (current % captureEveryNTurns !== 0) return;
+
+    log("[compaction] periodic capture triggered", { sessionID, turn: current, every: captureEveryNTurns });
+
+    try {
+      const resp = await ctx.client.session.messages({
+        path: { id: sessionID },
+        query: { directory: ctx.directory },
+      });
+
+      const messages = (resp.data ?? resp) as Array<{
+        info: MessageInfo;
+        parts?: Array<{ type: string; text?: string }>;
+      }>;
+
+      const assistantMessages = messages.filter((m) => m.info.role === "assistant" && !m.info.summary);
+      if (assistantMessages.length === 0) return;
+
+      const lastN = assistantMessages.slice(-captureEveryNTurns);
+      const snippets = lastN.flatMap((m) =>
+        (m.parts ?? [])
+          .filter((p) => p.type === "text" && p.text)
+          .map((p) => p.text as string)
+      );
+
+      if (snippets.length === 0) return;
+
+      const snapshot = `[Periodic Snapshot — turn ${current}]\n${snippets.join("\n\n")}`;
+      await saveSummaryAsMemory(sessionID, snapshot);
+    } catch (err) {
+      log("[compaction] periodic capture failed", { sessionID, error: String(err) });
     }
   }
 
@@ -515,6 +558,7 @@ export function createCompactionHook(
           state.lastCompactionTime.delete(sessionInfo.id);
           state.compactionInProgress.delete(sessionInfo.id);
           state.summarizedSessions.delete(sessionInfo.id);
+          state.turnCounters.delete(sessionInfo.id);
         }
         return;
       }
@@ -533,6 +577,7 @@ export function createCompactionHook(
 
         if (info.role !== "assistant" || !info.finish) return;
 
+        await capturePeriodicSnapshot(sessionID);
         await checkAndTriggerCompaction(sessionID, info);
         return;
       }
