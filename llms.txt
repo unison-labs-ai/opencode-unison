@@ -1,0 +1,30 @@
+# opencode-unison
+
+> OpenCode plugin that gives your coding agent persistent memory via the Unison brain —
+> a hosted, path-addressable knowledge store any agent can read and write over one HTTP API.
+
+**Agents: start with [AGENTS.md](AGENTS.md)** — it gets you from install to a working
+memory-enabled OpenCode session in five minutes, then shows how to contribute.
+
+The plugin hooks into OpenCode's `chat.message` and `event` lifecycle. On every session
+start it injects relevant project and user memories; on every assistant reply it detects
+memory-trigger phrases and nudges the agent to save; on compaction it preserves context
+across summarization. Auth is a `usk_...` bearer key — see `AGENTS.md` for how to get one.
+
+## Docs
+- [README](README.md): install, quickstart, env vars, configuration reference
+- [AGENTS.md](AGENTS.md): how an agent installs, authenticates, and uses this plugin
+- [CONTRIBUTING.md](CONTRIBUTING.md): build commands, conventions, PR checklist
+- [SECURITY.md](SECURITY.md): vulnerability reporting + credential handling policy
+
+## Usage
+- Install: `bunx opencode-unison@latest install`
+- Authenticate: `bunx opencode-unison@latest login` (browser) or `--headless` (OTP)
+- Set key directly: `export UNISON_TOKEN=usk_live_...`
+- Config file: `~/.config/opencode/unison.jsonc`
+
+## Examples
+- Write a memory: `unison(mode: "add", content: "...", scope: "project")`
+- Search memories: `unison(mode: "search", query: "...", scope: "project")`
+- List memories: `unison(mode: "list", scope: "user")`
+- Check status: `unison(mode: "status")`
