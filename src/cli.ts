@@ -95,6 +95,31 @@ This is a **deep research** initialization. Take your time and be thorough (~50+
 - \`git log --format="%s" -50\` — Commit conventions
 - \`git shortlog -sn --all | head -10\` — Main contributors
 
+### Explore Agent
+Fire parallel explore queries for broad understanding:
+\`\`\`
+Task(explore, "What is the tech stack and key dependencies?")
+Task(explore, "What is the project structure? Key directories?")
+Task(explore, "How do you build, test, and run this project?")
+Task(explore, "What are the main architectural patterns?")
+Task(explore, "What conventions or patterns are used?")
+\`\`\`
+
+## How to Do Thorough Research
+
+**Don't just collect data — analyze and cross-reference.**
+
+Bad (shallow):
+- Run commands, copy output
+- List facts without understanding
+
+Good (thorough):
+- Cross-reference findings (if inconsistent, dig deeper)
+- Resolve ambiguities (don't leave questions unanswered)
+- Read actual file content, not just names
+- Look for patterns (what do commits tell you about workflow?)
+- Think like a new team member — what would you want to know?
+
 ## Saving Memories
 
 Use the \`unison\` tool for each distinct insight:

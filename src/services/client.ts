@@ -1,5 +1,5 @@
 import { BrainClient } from "@unisonlabs/sdk";
-import type { SearchResult, BrainDocument } from "@unisonlabs/sdk";
+import type { SearchResult, BrainDocument, BrainFact } from "@unisonlabs/sdk";
 import { CONFIG, UNISON_TOKEN, getApiBaseUrl, isConfigured } from "../config.js";
 import { log } from "./logger.js";
 
@@ -162,6 +162,38 @@ export class UnisonBrainClient {
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: msg };
+    }
+  }
+
+  /**
+   * Compile a user profile from recently recorded facts in the brain.
+   * The Unison brain stores profile-like knowledge as `BrainFact` records —
+   * entities + timestamped claims extracted from memories. We surface the most
+   * recent N facts as the "profile" so the plugin can inject them at session
+   * start, mirroring supermemory's profile() call.
+   *
+   * Note: there is no dedicated /profile endpoint in the Unison API (verified
+   * against /v1/brain/* routes — only /search, /list, /facts, /entities exist).
+   * We synthesise it from facts.list() instead.
+   */
+  async getProfile(
+    limit = CONFIG.maxProfileItems
+  ): Promise<
+    | { success: true; facts: BrainFact[] }
+    | { success: false; error: string }
+  > {
+    log("getProfile: start", { limit });
+    try {
+      const facts = await withTimeout(
+        this.getClient().facts.list({ limit }),
+        TIMEOUT_MS
+      );
+      log("getProfile: ok", { count: facts.length });
+      return { success: true, facts };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      log("getProfile: error", { error: msg });
       return { success: false, error: msg };
     }
   }

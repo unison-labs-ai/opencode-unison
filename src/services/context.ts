@@ -1,11 +1,28 @@
-import type { SearchResult, BrainDocument } from "@unisonlabs/sdk";
+import type { SearchResult, BrainDocument, BrainFact } from "@unisonlabs/sdk";
 import { CONFIG } from "../config.js";
+
+function formatFactText(fact: BrainFact): string {
+  if (fact.factText) return fact.factText;
+  const parts: string[] = [];
+  if (fact.predicate) parts.push(fact.predicate);
+  if (fact.objectJson != null) parts.push(String(fact.objectJson));
+  const text = parts.join(": ").trim();
+  return text.length > 0 ? text : JSON.stringify(fact);
+}
 
 export function formatContextForPrompt(
   userResults: SearchResult[],
-  projectDocs: BrainDocument[]
+  projectDocs: BrainDocument[],
+  profileFacts?: BrainFact[]
 ): string {
   const parts: string[] = ["[UNISON BRAIN]"];
+
+  if (CONFIG.injectProfile && profileFacts && profileFacts.length > 0) {
+    parts.push("\nUser Profile:");
+    profileFacts.slice(0, CONFIG.maxProfileItems).forEach((fact) => {
+      parts.push(`- ${formatFactText(fact)}`);
+    });
+  }
 
   if (projectDocs.length > 0) {
     parts.push("\nProject Knowledge:");

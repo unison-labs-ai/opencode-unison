@@ -21,6 +21,10 @@ export interface UnisonConfig {
   maxMemories?: number;
   /** Max project memories listed on init. Default 10 */
   maxProjectMemories?: number;
+  /** Max profile facts injected on session start. Default 5 */
+  maxProfileItems?: number;
+  /** Inject compiled profile facts from the brain at session start. Default true */
+  injectProfile?: boolean;
   /** Include user-scoped memories in context. Default true */
   injectUserMemories?: boolean;
   /** Tag prefix for auto-generated scope tags. Default "opencode" */
@@ -29,11 +33,24 @@ export interface UnisonConfig {
   userScopeTag?: string;
   /** Exact tag to use for project-scoped memories (overrides auto-generated tag). */
   projectScopeTag?: string;
+  /**
+   * System prompt fragment passed to the brain when LLM-filtering is enabled.
+   * Describes what kind of memories to retain vs. discard.
+   */
+  filterPrompt?: string;
+  /**
+   * When true, the plugin signals the brain to run LLM-based deduplication/
+   * filtering on new memories before storing them. Default true.
+   */
+  shouldLLMFilter?: boolean;
   /** Extra keyword patterns (regex) that trigger memory save nudge. */
   keywordPatterns?: string[];
   /** Context usage ratio that triggers preemptive compaction (0–1). Default 0.8 */
   compactionThreshold?: number;
-  /** Recall brain on every prompt, not just session start. Default false */
+  /**
+   * Recall brain on every prompt, not just session start. Default false unless
+   * a config file exists (in which case defaults to true).
+   */
   recallEveryPrompt?: boolean;
   /**
    * Automatically save a conversation summary to the brain every N assistant turns.
@@ -105,11 +122,18 @@ export function getApiBaseUrl(): string {
 
 export const CONFIG_FILE = CONFIG_FILES[1]!;
 
+const DEFAULT_FILTER_PROMPT =
+  "You are a stateful coding agent. Remember all the information, including but not limited to the user's coding preferences, tech stack, behaviours, workflows, and any other relevant details.";
+
 export const CONFIG = {
   similarityThreshold: fileConfig.similarityThreshold ?? 0.6,
   maxMemories: fileConfig.maxMemories ?? 5,
   maxProjectMemories: fileConfig.maxProjectMemories ?? 10,
+  maxProfileItems: fileConfig.maxProfileItems ?? 5,
+  injectProfile: fileConfig.injectProfile ?? true,
   injectUserMemories: fileConfig.injectUserMemories ?? true,
+  filterPrompt: fileConfig.filterPrompt ?? DEFAULT_FILTER_PROMPT,
+  shouldLLMFilter: fileConfig.shouldLLMFilter ?? true,
   tagPrefix: fileConfig.tagPrefix ?? "opencode",
   userScopeTag: fileConfig.userScopeTag,
   projectScopeTag: fileConfig.projectScopeTag,
@@ -122,7 +146,9 @@ export const CONFIG = {
     if (v == null || typeof v !== "number" || isNaN(v) || v <= 0 || v > 1) return 0.8;
     return v;
   })(),
-  recallEveryPrompt: fileConfig.recallEveryPrompt ?? false,
+  recallEveryPrompt:
+    fileConfig.recallEveryPrompt ??
+    (configExisted ? true : false),
   captureEveryNTurns:
     fileConfig.captureEveryNTurns ??
     (configExisted ? 3 : 0),
