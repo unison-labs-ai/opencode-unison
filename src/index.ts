@@ -134,23 +134,28 @@ export const UnisonPlugin: Plugin = async (ctx: PluginInput) => {
           let memoryContext = "";
 
           if (CONFIG.recallEveryPrompt) {
-            const [userResult, projectResult] = await Promise.all([
+            const [userResult, projectResult, profileResult] = await Promise.all([
               brainClient.searchMemories(userMessage, tags.user),
               brainClient.listMemories(tags.project, CONFIG.maxProjectMemories),
+              CONFIG.injectProfile ? brainClient.getProfile() : Promise.resolve(null),
             ]);
 
             const userHits = userResult.success ? userResult.results : [];
             const projectDocs = projectResult.success ? projectResult.memories : [];
+            const profileFacts =
+              profileResult && profileResult.success ? profileResult.facts : undefined;
 
-            memoryContext = formatContextForPrompt(userHits, projectDocs);
+            memoryContext = formatContextForPrompt(userHits, projectDocs, profileFacts);
           } else {
-            // Inject only project memories on session start (cheaper)
-            const projectResult = await brainClient.listMemories(
-              tags.project,
-              CONFIG.maxProjectMemories
-            );
+            // Inject project memories + profile on session start
+            const [projectResult, profileResult] = await Promise.all([
+              brainClient.listMemories(tags.project, CONFIG.maxProjectMemories),
+              CONFIG.injectProfile ? brainClient.getProfile() : Promise.resolve(null),
+            ]);
             const projectDocs = projectResult.success ? projectResult.memories : [];
-            memoryContext = formatContextForPrompt([], projectDocs);
+            const profileFacts =
+              profileResult && profileResult.success ? profileResult.facts : undefined;
+            memoryContext = formatContextForPrompt([], projectDocs, profileFacts);
           }
 
           if (memoryContext) {
@@ -180,10 +185,10 @@ export const UnisonPlugin: Plugin = async (ctx: PluginInput) => {
     tool: {
       unison: tool({
         description:
-          "Manage and query the Unison brain — persistent memory across sessions and projects. Use 'search' to recall knowledge, 'add' to save new knowledge, 'list' to browse memories, 'forget' to remove a memory, 'status' to check brain health.",
+          "Manage and query the Unison brain — persistent memory across sessions and projects. Use 'search' to recall knowledge, 'add' to save new knowledge, 'profile' to view compiled user profile facts, 'list' to browse memories, 'forget' to remove a memory, 'status' to check brain health.",
         args: {
           mode: tool.schema
-            .enum(["add", "search", "list", "forget", "status", "help"])
+            .enum(["add", "search", "profile", "list", "forget", "status", "help"])
             .optional(),
           content: tool.schema.string().optional(),
           query: tool.schema.string().optional(),
@@ -200,6 +205,7 @@ export const UnisonPlugin: Plugin = async (ctx: PluginInput) => {
           scope: tool.schema.enum(["user", "project"]).optional(),
           path: tool.schema.string().optional(),
           limit: tool.schema.number().optional(),
+          profileQuery: tool.schema.string().optional(),
         },
         async execute(args: {
           mode?: string;
@@ -209,6 +215,8 @@ export const UnisonPlugin: Plugin = async (ctx: PluginInput) => {
           scope?: MemoryScope;
           path?: string;
           limit?: number;
+          // profile mode: optional focus query
+          profileQuery?: string;
         }) {
           if (!isConfigured()) {
             return JSON.stringify({
@@ -236,6 +244,11 @@ export const UnisonPlugin: Plugin = async (ctx: PluginInput) => {
                       command: "search",
                       description: "Search brain memories (hybrid keyword+semantic)",
                       args: ["query", "scope?"],
+                    },
+                    {
+                      command: "profile",
+                      description: "View compiled user profile facts from the brain",
+                      args: ["limit?"],
                     },
                     {
                       command: "list",
@@ -361,6 +374,28 @@ export const UnisonPlugin: Plugin = async (ctx: PluginInput) => {
                     highlight: r.highlight,
                     score: Math.round(r.score * 100),
                     scope: r.scope,
+                  })),
+                });
+              }
+
+              case "profile": {
+                const limit = args.limit ?? CONFIG.maxProfileItems;
+                const result = await brainClient.getProfile(limit);
+
+                if (!result.success) {
+                  return JSON.stringify({ success: false, error: result.error });
+                }
+
+                return JSON.stringify({
+                  success: true,
+                  count: result.facts.length,
+                  facts: result.facts.map((f) => ({
+                    id: f.id,
+                    predicate: f.predicate,
+                    factText: f.factText,
+                    objectJson: f.objectJson,
+                    recordedAt: f.recordedAt,
+                    confidence: f.confidence,
                   })),
                 });
               }
