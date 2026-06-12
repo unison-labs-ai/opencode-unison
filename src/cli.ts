@@ -674,7 +674,7 @@ Examples:
 
 Environment variables:
   UNISON_TOKEN     usk_live_... key (takes precedence over config file)
-  UNISON_API_URL   Override API base URL (default: https://api.unisonlabs.ai)
+  UNISON_API_URL   Override API base URL (default: https://brain.unisonlabs.ai)
   UNISON_APP_URL   Override app URL for browser login (default: https://app.unisonlabs.ai)
 `);
 }

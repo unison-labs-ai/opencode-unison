@@ -203,7 +203,7 @@ Create `~/.config/opencode/unison.jsonc`:
   "token": "usk_live_...",
 
   // Override the API base URL
-  // "apiUrl": "https://api.unisonlabs.ai",
+  // "apiUrl": "https://brain.unisonlabs.ai",
 
   // Min similarity for memory retrieval (0-1)
   "similarityThreshold": 0.6,

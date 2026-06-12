@@ -56,7 +56,7 @@ bunx opencode-unison@latest login --headless
 **Environment variable (CI / automation):**
 ```bash
 export UNISON_TOKEN="usk_live_..."
-export UNISON_BASE_URL="https://api.unisonlabs.ai"   # optional override
+export UNISON_BASE_URL="https://brain.unisonlabs.ai"   # optional override
 ```
 
 The plugin reads the key in this priority order:
@@ -103,7 +103,7 @@ surface a nudge to call `unison(mode: "add", ...)`.
 ### Direct API access (advanced)
 
 If you need the raw HTTP API, the brain is at `UNISON_BASE_URL` (default:
-`https://api.unisonlabs.ai`). Every request needs:
+`https://brain.unisonlabs.ai`). Every request needs:
 
 ```
 Authorization: Bearer <usk_...>

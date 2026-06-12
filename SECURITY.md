@@ -34,7 +34,7 @@ The plugin stores a bearer token (`usk_live_...`) in
 `~/.unison-opencode/credentials.json` with `0600` permissions, or reads it from
 the `UNISON_TOKEN` environment variable. The token is never logged or transmitted
 anywhere except the configured API host (`UNISON_BASE_URL`, default
-`https://api.unisonlabs.ai`).
+`https://brain.unisonlabs.ai`).
 
 Content wrapped in `<private>...</private>` tags is stripped before any data is
 sent to the brain.

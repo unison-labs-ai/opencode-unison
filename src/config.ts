@@ -13,7 +13,7 @@ const CONFIG_FILES = [
 export interface UnisonConfig {
   /** Unison API token (usk_...). Can also be set via UNISON_TOKEN env var. */
   token?: string;
-  /** Override the API base URL. Defaults to https://api.unisonlabs.ai */
+  /** Override the API base URL. Defaults to https://brain.unisonlabs.ai */
   apiUrl?: string;
   /** Minimum similarity score for search recall (0–1). Default 0.6 */
   similarityThreshold?: number;
@@ -116,7 +116,7 @@ export function getApiBaseUrl(): string {
   return (
     process.env.UNISON_API_URL ??
     fileConfig.apiUrl ??
-    "https://api.unisonlabs.ai"
+    "https://brain.unisonlabs.ai"
   );
 }
 
