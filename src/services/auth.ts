@@ -50,8 +50,8 @@ export interface AuthResult {
 
 /**
  * Machine-auth headless flow:
- * 1. POST /v1/auth/provision  →  { apiKey, tenantId, status, emailSent }
- * 2. POST /v1/auth/verify     →  { verified, tenantId } (OTP from email)
+ * 1. POST /v1/auth/provision  →  { apiKey, workspaceId, status, emailSent }
+ * 2. POST /v1/auth/verify     →  { verified, workspaceId } (OTP from email)
  *
  * This function handles the browser-redirect flow for human users.
  * The local HTTP server receives the token as a query parameter on the
@@ -234,7 +234,7 @@ export async function provisionAndVerify(
     const data = (await verifyRes.json()) as {
       verified: boolean;
       apiKey?: string;
-      tenantId?: string;
+      workspaceId?: string;
     };
 
     if (!data.verified) {

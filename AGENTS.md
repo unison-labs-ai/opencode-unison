@@ -70,7 +70,7 @@ The plugin reads the key in this priority order:
 bunx opencode-unison@latest status
 ```
 
-Should print: connected email, tenant ID, and doc counts. If not:
+Should print: connected email, workspace ID, and doc counts. If not:
 - Is `UNISON_TOKEN` set, or does `~/.unison-opencode/credentials.json` exist?
 - Is `opencode-unison` listed in `~/.config/opencode/opencode.jsonc`?
 - Check logs: `tail ~/.opencode-unison.log`
@@ -112,7 +112,7 @@ Authorization: Bearer <usk_...>
 Key endpoints:
 - `GET /v1/brain/search?q=<query>&k=5&tag=<tag>` — hybrid search
 - `PUT /v1/brain/doc` — write a document (body: `{path, bodyMd, kind, tags, visibility}`)
-- `GET /v1/auth/whoami` — verify token + get tenant info
+- `GET /v1/auth/whoami` — verify token + get workspace info
 
 See [SPEC.md in the unison-brain repo](https://github.com/unison-labs-ai/unison-brain/blob/main/SPEC.md)
 for the full API contract.

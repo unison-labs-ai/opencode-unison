@@ -456,7 +456,7 @@ export const UnisonPlugin: Plugin = async (ctx: PluginInput) => {
                   whoami.status === "fulfilled" && whoami.value.success
                     ? {
                         email: whoami.value.email ?? "(unavailable)",
-                        tenantId: whoami.value.tenantId,
+                        workspaceId: whoami.value.workspaceId,
                         scopes: whoami.value.scopes,
                       }
                     : null;

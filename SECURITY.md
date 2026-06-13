@@ -17,7 +17,7 @@ investigate. We'll credit reporters who want it once a fix ships.
 
 This repository is the **opencode-unison plugin** — an OpenCode plugin that connects
 to the Unison brain API. It holds no secrets and is not a security boundary — all
-authentication, authorization, tenant isolation, and rate limiting are enforced
+authentication, authorization, workspace isolation, and rate limiting are enforced
 **server-side** by the Unison brain API. Reports about the plugin are most useful
 when they concern:
 
