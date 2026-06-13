@@ -18,7 +18,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 /**
  * Thin wrapper around BrainClient that:
  *  - handles search, write, delete, and list via the official SDK
- *  - maps Unison brain doc paths under writable roots (/private/ or /tenant/)
+ *  - maps Unison brain doc paths under writable roots (/private/ or /workspace/)
  *  - exposes a memory-shaped API so the plugin layer stays clean
  */
 export class UnisonBrainClient {
@@ -149,16 +149,21 @@ export class UnisonBrainClient {
    * Verify the token works and return account info.
    */
   async whoami(): Promise<
-    | { success: true; email: string | null; tenantId: string; scopes: string[] }
+    | { success: true; email: string | null; workspaceId: string; scopes: string[] }
     | { success: false; error: string }
   > {
     try {
       const info = await withTimeout(this.getClient().whoami(), TIMEOUT_MS);
+      const { user, scopes } = info;
+      const workspaceId = (Object.values(info).find(
+        (v): v is { id: string; name: string | null } =>
+          typeof v === "object" && v !== null && "id" in v && "name" in v && !("email" in v)
+      )?.id) ?? "";
       return {
         success: true,
-        email: info.user.email,
-        tenantId: info.tenant.id,
-        scopes: info.scopes,
+        email: user.email,
+        workspaceId,
+        scopes,
       };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

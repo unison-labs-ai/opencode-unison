@@ -609,7 +609,7 @@ async function status(): Promise<number> {
     lines.push("");
     lines.push("Account:");
     lines.push(`  Email: ${whoami.email ?? "(unavailable)"}`);
-    lines.push(`  Tenant: ${whoami.tenantId}`);
+    lines.push(`  Workspace: ${whoami.workspaceId}`);
     lines.push(`  Scopes: ${whoami.scopes.join(", ")}`);
   } else {
     const err =
